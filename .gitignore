@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+dist/
+client/dist/
+server/dist/
+.vercel/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing
+coverage/
+
+# Prisma
+prisma/*.db
