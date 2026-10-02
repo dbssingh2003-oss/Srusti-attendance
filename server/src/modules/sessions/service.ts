@@ -5,6 +5,7 @@ import { addMinutes } from '../../lib/time';
 import { env } from '../../config/env';
 import { logger } from '../../lib/logger';
 import { SessionStatus, Prisma } from '@prisma/client';
+import { emitSessionFinalized } from '../../realtime/emitters';
 
 /**
  * Schedule a new class session.
@@ -162,33 +163,48 @@ export async function closeWindow(sessionId: string, actorId?: string) {
  * Finalize a session: insert ABSENT for enrolled students who didn't check in, then lock.
  * This is idempotent — calling it on an already-finalized session is a no-op.
  */
-export async function finalizeSession(sessionId: string) {
-  await prisma.$transaction(async (tx) => {
-    const s = await tx.classSession.findUniqueOrThrow({ where: { id: sessionId } });
-
-    if (s.status === 'FINALIZED' || s.status === 'CANCELLED') return;
-
-    // Insert ABSENT records for enrolled students who don't have attendance yet
-    await tx.$executeRaw`
-      INSERT INTO "Attendance"(id, "sessionId", "studentId", status)
-      SELECT gen_random_uuid()::text, ${sessionId}, e."studentId", 'ABSENT'::"AttendanceStatus"
-      FROM "Enrollment" e
-      WHERE e."subjectId" = ${s.subjectId}
-        AND NOT EXISTS (
-          SELECT 1 FROM "Attendance" a
-          WHERE a."sessionId" = ${sessionId}
-          AND a."studentId" = e."studentId"
-        )
-    `;
-
-    await tx.classSession.update({
-      where: { id: sessionId },
-      data: { status: 'FINALIZED', finalizedAt: new Date() },
-    });
+export async function finalizeSession(sessionId: string, teacherId?: string) {
+  const session = await prisma.classSession.findUniqueOrThrow({
+    where: { id: sessionId },
+    include: { subject: { select: { teacherId: true, code: true, name: true } } },
   });
 
-  await writeAudit('SYSTEM', 'SESSION_FINALIZED', 'ClassSession', sessionId);
-  logger.info({ sessionId }, 'Session finalized');
+  if (teacherId && session.subject.teacherId !== teacherId) {
+    throw new AppError('FORBIDDEN', 403, 'You do not own this subject');
+  }
+
+  if (session.status !== 'FINALIZED' && session.status !== 'CANCELLED') {
+    await prisma.$transaction(async (tx) => {
+      // Insert ABSENT records for enrolled students who don't have attendance yet
+      await tx.$executeRaw`
+        INSERT INTO "Attendance"(id, "sessionId", "studentId", status)
+        SELECT gen_random_uuid()::text, ${sessionId}, e."studentId", 'ABSENT'::"AttendanceStatus"
+        FROM "Enrollment" e
+        WHERE e."subjectId" = ${session.subjectId}
+          AND NOT EXISTS (
+            SELECT 1 FROM "Attendance" a
+            WHERE a."sessionId" = ${sessionId}
+            AND a."studentId" = e."studentId"
+          )
+      `;
+
+      await tx.classSession.update({
+        where: { id: sessionId },
+        data: { status: 'FINALIZED', finalizedAt: new Date() },
+      });
+    });
+
+    await writeAudit(teacherId || 'SYSTEM', 'SESSION_FINALIZED', 'ClassSession', sessionId);
+    logger.info({ sessionId }, 'Session finalized');
+  }
+
+  // Real-time broadcast
+  emitSessionFinalized(session.subjectId, sessionId);
+
+  return prisma.classSession.findUnique({
+    where: { id: sessionId },
+    include: { subject: { select: { code: true, name: true } } },
+  });
 }
 
 /**

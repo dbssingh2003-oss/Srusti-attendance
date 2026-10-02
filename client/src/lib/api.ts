@@ -32,10 +32,28 @@ export async function apiRequest<T = any>(
     return {} as T;
   }
 
-  const data = await res.json().catch(() => ({}));
+  let data: any = {};
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    data = await res.json().catch(() => ({}));
+  } else {
+    const rawText = await res.text().catch(() => '');
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { message: rawText };
+      }
+    }
+  }
 
   if (!res.ok) {
-    const errorMsg = data?.error?.message || data?.message || `Request failed with status ${res.status}`;
+    const errorMsg =
+      data?.error?.message ||
+      data?.message ||
+      (res.status === 500
+        ? 'Internal Server Error (500). Please check backend server logs or database connectivity.'
+        : `Request failed with status ${res.status}`);
     throw new Error(errorMsg);
   }
 

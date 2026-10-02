@@ -5,7 +5,7 @@ import { requireRole } from '../../middleware/rbac';
 
 const router = Router();
 
-router.use(authenticate, requireRole('TEACHER'));
+router.use(authenticate, requireRole('TEACHER', 'ADMIN'));
 
 router.get('/daily', controller.getDailyReport);
 router.get('/summary', controller.getSummaryReport);

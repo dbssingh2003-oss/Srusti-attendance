@@ -76,3 +76,13 @@ export async function getLiveSession(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+export async function finalizeSession(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await sessionService.finalizeSession(req.params.id as string, req.user!.id);
+    res.json(session);
+  } catch (error) {
+    next(error);
+  }
+}
+

@@ -121,9 +121,17 @@ export async function getStudentSummary(studentId: string) {
   const totalSessions = subjects.reduce((sum, s) => sum + s.total, 0);
   const overallPct = totalSessions > 0 ? Math.round((1000 * totalPresent) / totalSessions) / 10 : 0;
 
+  const stats = subjects.map((s) => ({
+    subject: { id: s.subjectId, code: s.code, name: s.name },
+    present: s.present,
+    total: s.total,
+    pct: s.pct,
+  }));
+
   return {
     overall: { present: totalPresent, total: totalSessions, pct: overallPct },
     subjects,
+    stats,
   };
 }
 
@@ -182,7 +190,7 @@ export async function getStudentToday(studentId: string) {
       status: { not: 'CANCELLED' },
     },
     include: {
-      subject: { select: { code: true, name: true } },
+      subject: { select: { id: true, code: true, name: true } },
       attendance: {
         where: { studentId },
         select: { status: true, markedAt: true },
@@ -193,10 +201,14 @@ export async function getStudentToday(studentId: string) {
 
   return sessions.map((s) => ({
     id: s.id,
-    subject: { code: s.subject.code, name: s.subject.name },
-    startsAt: s.startsAt,
-    endsAt: s.endsAt,
+    classCode: s.classCode,
+    startsAt: s.startsAt.toISOString(),
+    endsAt: s.endsAt.toISOString(),
+    windowOpensAt: s.windowOpensAt.toISOString(),
+    windowClosesAt: s.windowClosesAt.toISOString(),
     status: s.status,
+    subject: { id: s.subject.id, code: s.subject.code, name: s.subject.name },
     attendance: s.attendance[0] ?? null,
+    attendanceStatus: s.attendance[0]?.status ?? null,
   }));
 }

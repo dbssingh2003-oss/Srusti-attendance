@@ -16,6 +16,7 @@ export async function emitAttendanceMarked(
 ) {
   try {
     const io = getIO();
+    if (!io) return;
 
     // Count current attendees
     const count = await prisma.attendance.count({
@@ -46,7 +47,9 @@ export async function emitAttendanceMarked(
  */
 export function emitSessionOpened(subjectId: string, sessionId: string, subjectName: string, closesAt: Date) {
   try {
-    getIO().to(`subject:${subjectId}`).emit('session:opened', {
+    const io = getIO();
+    if (!io) return;
+    io.to(`subject:${subjectId}`).emit('session:opened', {
       sessionId,
       subjectName,
       closesAt,
@@ -61,7 +64,9 @@ export function emitSessionOpened(subjectId: string, sessionId: string, subjectN
  */
 export function emitSessionExtended(subjectId: string, sessionId: string, closesAt: Date) {
   try {
-    getIO().to(`subject:${subjectId}`).emit('session:extended', {
+    const io = getIO();
+    if (!io) return;
+    io.to(`subject:${subjectId}`).emit('session:extended', {
       sessionId,
       closesAt,
     });
@@ -75,7 +80,9 @@ export function emitSessionExtended(subjectId: string, sessionId: string, closes
  */
 export function emitSessionClosed(subjectId: string, sessionId: string) {
   try {
-    getIO().to(`subject:${subjectId}`).emit('session:closed', { sessionId });
+    const io = getIO();
+    if (!io) return;
+    io.to(`subject:${subjectId}`).emit('session:closed', { sessionId });
   } catch (err) {
     logger.error({ err }, 'Failed to emit session:closed');
   }
@@ -87,6 +94,7 @@ export function emitSessionClosed(subjectId: string, sessionId: string) {
 export async function emitSessionFinalized(subjectId: string, sessionId: string) {
   try {
     const io = getIO();
+    if (!io) return;
 
     io.to(`subject:${subjectId}`).emit('session:finalized', { sessionId });
 

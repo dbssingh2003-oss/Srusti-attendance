@@ -42,16 +42,35 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(generalLimiter);
 
+// Restore original requested path if rewritten by Vercel serverless function
+app.use((req, _res, next) => {
+  const matchedPath = (req.headers['x-matched-path'] || req.headers['x-vercel-matched-path']) as string | undefined;
+  if (matchedPath && (req.url === '/api/index' || req.url === '/api' || req.url.startsWith('/api/index?'))) {
+    req.url = matchedPath;
+  }
+  next();
+});
+
 // Request logging
 app.use((req, _res, next) => {
   logger.debug({ method: req.method, url: req.url }, 'Request');
   next();
 });
 
-// Health check
+// Health check and root info
+app.get(['/', '/api', '/api/index'], (_req, res) => {
+  res.json({
+    status: 'ok',
+    name: 'Srusti Smart Attendance API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get(['/api/health', '/health'], (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
 
 // API routes mounted for both standard (/api/v1) and Vercel-stripped (/v1) paths
 const registerRoutes = (prefix: string) => {

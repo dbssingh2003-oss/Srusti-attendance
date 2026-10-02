@@ -16,7 +16,9 @@ router.get('/:id', validate({ params: sessionParamsSchema }), controller.getSess
 router.post('/:id/open', validate({ params: sessionParamsSchema }), controller.openSession);
 router.post('/:id/extend', validate({ params: sessionParamsSchema, body: extendWindowSchema }), controller.extendWindow);
 router.post('/:id/close', validate({ params: sessionParamsSchema }), controller.closeWindow);
+router.post('/:id/finalize', validate({ params: sessionParamsSchema }), controller.finalizeSession);
 router.post('/:id/cancel', validate({ params: sessionParamsSchema }), controller.cancelSession);
 router.get('/:id/live', validate({ params: sessionParamsSchema }), controller.getLiveSession);
+
 
 export default router;

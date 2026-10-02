@@ -10,7 +10,7 @@ const router = Router();
 
 // Check-in (student only)
 router.post(
-  '/checkin',
+  ['/checkin', '/attendance/checkin'],
   authenticate,
   requireRole('STUDENT'),
   checkinLimiter,
@@ -20,14 +20,32 @@ router.post(
 );
 
 // Student summary
-router.get('/students/me/attendance', authenticate, requireRole('STUDENT'), controller.getSummary);
 router.get(
-  '/students/me/attendance/:subjectId',
+  ['/students/me/attendance', '/attendance/summary', '/summary'],
+  authenticate,
+  requireRole('STUDENT'),
+  controller.getSummary
+);
+
+// Subject history
+router.get(
+  [
+    '/students/me/attendance/:subjectId',
+    '/attendance/history/:subjectId',
+    '/history/:subjectId',
+  ],
   authenticate,
   requireRole('STUDENT'),
   validate({ params: subjectParamsSchema }),
   controller.getSubjectHistory
 );
-router.get('/students/me/today', authenticate, requireRole('STUDENT'), controller.getToday);
+
+// Today's classes
+router.get(
+  ['/students/me/today', '/attendance/today', '/today'],
+  authenticate,
+  requireRole('STUDENT'),
+  controller.getToday
+);
 
 export default router;
