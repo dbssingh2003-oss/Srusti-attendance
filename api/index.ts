@@ -1,26 +1,24 @@
-// Vercel's @vercel/node runtime compiles TypeScript natively.
-// Wrap in try-catch to surface initialization errors clearly.
+// Vercel Serverless Function entry point.
+// @vercel/node compiles TypeScript and all imports natively.
 
 let app: any;
 let initError: Error | null = null;
 
 try {
-  app = require('../server/src/app').default || require('../server/src/app');
+  const mod = require('../server/src/app');
+  app = mod.default || mod;
 } catch (err: any) {
   initError = err;
-  console.error('=== FATAL: Failed to initialize Express app ===');
-  console.error(err?.message);
-  console.error(err?.stack);
+  console.error('[Vercel] FATAL — Express app failed to initialize:', err.message);
+  console.error(err.stack);
 }
 
 export default function handler(req: any, res: any) {
   if (initError || !app) {
-    res.status(500).json({
+    return res.status(500).json({
       error: 'INIT_FAILED',
-      message: initError?.message || 'App failed to initialize',
-      stack: initError?.stack?.split('\n').slice(0, 10),
+      message: initError?.message || 'Unknown initialization error',
     });
-    return;
   }
   return app(req, res);
 }
