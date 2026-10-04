@@ -18,7 +18,7 @@
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npm run db:seed --workspace=server",
     "build": "npx prisma generate && npm run build --workspace=server && npm run build --workspace=client",
-    "vercel-build": "npx prisma generate --schema=server/prisma/schema.prisma && npm run build --workspace=client"
+    "vercel-build": "npx prisma generate --schema=server/prisma/schema.prisma && node server/node_modules/esbuild/bin/esbuild server/src/app.ts --bundle --platform=node --target=node20 --format=cjs --outfile=api/server.cjs --external:@prisma/client --external:prisma --external:pino-pretty --minify && npm run build --workspace=client"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

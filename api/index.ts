@@ -1,23 +1,23 @@
-// Vercel Serverless Function entry point.
-// @vercel/node compiles TypeScript and all imports natively.
+// Pre-bundled server entry point for Vercel.
+// The server is compiled to api/server.cjs during vercel-build.
 
 let app: any;
-let initError: Error | null = null;
+let initError: any = null;
 
 try {
-  const mod = require('../server/src/app');
+  const mod = require('./server.cjs');
   app = mod.default || mod;
 } catch (err: any) {
   initError = err;
-  console.error('[Vercel] FATAL — Express app failed to initialize:', err.message);
-  console.error(err.stack);
+  console.error('[Vercel] FATAL — server bundle failed to load:', err?.message);
+  console.error(err?.stack);
 }
 
 export default function handler(req: any, res: any) {
   if (initError || !app) {
     return res.status(500).json({
       error: 'INIT_FAILED',
-      message: initError?.message || 'Unknown initialization error',
+      message: initError?.message || 'Server failed to initialize',
     });
   }
   return app(req, res);
