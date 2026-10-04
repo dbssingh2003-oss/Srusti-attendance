@@ -1,103 +1,89 @@
-import { Server as HttpServer } from 'http';
-import { Server, Socket } from 'socket.io';
-import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
-import { prisma } from '../lib/prisma';
-import { logger } from '../lib/logger';
-import { JwtPayload } from '../middleware/auth';
 
-let io: Server;
+// In serverless environments (Vercel), socket.io cannot work because:
+// 1. There's no persistent HTTP server
+// 2. Each function invocation is isolated
+// So we lazy-load socket.io and return a no-op getIO() when not initialized.
 
-export function initSocket(httpServer: HttpServer): Server {
-  io = new Server(httpServer, {
-    cors: {
-      origin: env.CLIENT_ORIGIN,
-      credentials: true,
-    },
-    pingTimeout: 10000,
-    pingInterval: 25000,
-  });
+let _io: any = null;
 
-  // JWT authentication handshake
-  io.use(async (socket, next) => {
-    try {
-      const token = socket.handshake.auth.token;
-      if (!token) {
-        return next(new Error('Authentication required'));
+/**
+ * Initialize socket.io on an HTTP server.
+ * Only called in the standalone server (index.ts), never on Vercel.
+ */
+export async function initSocket(httpServer: any): Promise<any> {
+  try {
+    const { Server } = await import('socket.io');
+    const jwt = await import('jsonwebtoken');
+    const { prisma } = await import('../lib/prisma');
+    const { logger } = await import('../lib/logger');
+
+    _io = new Server(httpServer, {
+      cors: { origin: env.CLIENT_ORIGIN, credentials: true },
+      pingTimeout: 10000,
+      pingInterval: 25000,
+    });
+
+    _io.use(async (socket: any, next: any) => {
+      try {
+        const token = socket.handshake.auth.token;
+        if (!token) return next(new Error('Authentication required'));
+        const payload = jwt.default.verify(token, env.JWT_ACCESS_SECRET) as any;
+        const user = await prisma.user.findUnique({
+          where: { id: payload.sub },
+          select: { id: true, role: true, isActive: true },
+        });
+        if (!user || !user.isActive) return next(new Error('User not found or deactivated'));
+        socket.userId = user.id;
+        socket.userRole = user.role;
+        next();
+      } catch {
+        next(new Error('Invalid token'));
       }
+    });
 
-      const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtPayload;
-      const user = await prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: { id: true, role: true, isActive: true },
+    _io.on('connection', async (socket: any) => {
+      const { logger: log } = await import('../lib/logger');
+      const userId = socket.userId as string;
+      const userRole = socket.userRole as string;
+      log.debug({ userId, socketId: socket.id }, 'Socket connected');
+      socket.join(`user:${userId}`);
+      try {
+        if (userRole === 'STUDENT') {
+          const enrollments = await prisma.enrollment.findMany({
+            where: { studentId: userId },
+            select: { subjectId: true },
+          });
+          for (const e of enrollments) socket.join(`subject:${e.subjectId}`);
+        } else if (userRole === 'TEACHER') {
+          const subjects = await prisma.subject.findMany({
+            where: { teacherId: userId },
+            select: { id: true },
+          });
+          for (const s of subjects) socket.join(`subject:${s.id}`);
+        }
+      } catch (err) {
+        log.error({ err, userId }, 'Failed to join rooms');
+      }
+      socket.on('join:session', (sessionId: string) => {
+        if (userRole === 'TEACHER') socket.join(`session:${sessionId}`);
       });
-
-      if (!user || !user.isActive) {
-        return next(new Error('User not found or deactivated'));
-      }
-
-      // Attach user data to socket
-      (socket as any).userId = user.id;
-      (socket as any).userRole = user.role;
-      next();
-    } catch {
-      next(new Error('Invalid token'));
-    }
-  });
-
-  io.on('connection', async (socket: Socket) => {
-    const userId = (socket as any).userId as string;
-    const userRole = (socket as any).userRole as string;
-
-    logger.debug({ userId, socketId: socket.id }, 'Socket connected');
-
-    // Auto-join personal room
-    socket.join(`user:${userId}`);
-
-    // Auto-join subject rooms
-    try {
-      if (userRole === 'STUDENT') {
-        const enrollments = await prisma.enrollment.findMany({
-          where: { studentId: userId },
-          select: { subjectId: true },
-        });
-        for (const e of enrollments) {
-          socket.join(`subject:${e.subjectId}`);
-        }
-      } else if (userRole === 'TEACHER') {
-        const subjects = await prisma.subject.findMany({
-          where: { teacherId: userId },
-          select: { id: true },
-        });
-        for (const s of subjects) {
-          socket.join(`subject:${s.id}`);
-        }
-      }
-    } catch (err) {
-      logger.error({ err, userId }, 'Failed to join rooms');
-    }
-
-    // Allow teacher to join session rooms for live view
-    socket.on('join:session', (sessionId: string) => {
-      if (userRole === 'TEACHER') {
-        socket.join(`session:${sessionId}`);
-        logger.debug({ userId, sessionId }, 'Teacher joined session room');
-      }
+      socket.on('leave:session', (sessionId: string) => socket.leave(`session:${sessionId}`));
+      socket.on('disconnect', () => log.debug({ userId, socketId: socket.id }, 'Socket disconnected'));
     });
 
-    socket.on('leave:session', (sessionId: string) => {
-      socket.leave(`session:${sessionId}`);
-    });
-
-    socket.on('disconnect', () => {
-      logger.debug({ userId, socketId: socket.id }, 'Socket disconnected');
-    });
-  });
-
-  return io;
+    return _io;
+  } catch (err) {
+    const { logger } = await import('../lib/logger');
+    logger.warn({ err }, 'Socket.io failed to initialize (serverless environment?)');
+    return null;
+  }
 }
 
-export function getIO(): Server | null {
-  return io ?? null;
+/**
+ * Get the socket.io server instance.
+ * Returns null in serverless environments — callers must handle null gracefully.
+ */
+export function getIO(): any {
+  return _io;
 }
-
