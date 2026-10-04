@@ -17,8 +17,8 @@
     "db:push": "npx prisma db push",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npm run db:seed --workspace=server",
-    "build": "npx prisma generate && npm run build --workspace=client",
-    "vercel-build": "npx prisma generate && npm run build --workspace=client"
+    "build": "npx prisma generate && npm run build --workspace=server && npm run build --workspace=client",
+    "vercel-build": "npx prisma generate && npm run build --workspace=server && npm run build --workspace=client"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
