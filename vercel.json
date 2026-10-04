@@ -4,7 +4,7 @@
   "outputDirectory": "client/dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "server/prisma/**"
+      "includeFiles": "{prisma/**,server/src/**}"
     }
   },
   "rewrites": [
