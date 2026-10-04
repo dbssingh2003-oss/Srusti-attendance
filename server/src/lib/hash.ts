@@ -1,31 +1,27 @@
-import * as argon2 from 'argon2';
+import bcrypt from 'bcryptjs';
 import { randomBytes, createHash } from 'node:crypto';
-
 import { logger } from './logger';
 
+const BCRYPT_ROUNDS = 12; // OWASP recommended minimum for bcrypt
+
 /**
- * Hash a password using argon2id.
- * Safe configuration: 19MB memory, 2 iterations, 1 parallelism thread.
+ * Hash a password using bcrypt.
+ * Uses 12 rounds (OWASP recommended) — pure JS, works on all platforms.
  */
 export async function hashPassword(password: string): Promise<string> {
-  return argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19456, // 19 MB (OWASP recommended for container/serverless)
-    timeCost: 2,
-    parallelism: 1,
-  });
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
 
 /**
- * Verify a password against an argon2id hash.
+ * Verify a password against a bcrypt hash.
  * Safely catches corrupted/invalid hashes and returns false instead of throwing 500 errors.
  */
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
   if (!hash || !password) return false;
   try {
-    return await argon2.verify(hash, password);
+    return await bcrypt.compare(password, hash);
   } catch (err: any) {
-    logger.warn({ err: err?.message }, 'Argon2 password verification exception caught safely');
+    logger.warn({ err: err?.message }, 'Bcrypt password verification exception caught safely');
     return false;
   }
 }

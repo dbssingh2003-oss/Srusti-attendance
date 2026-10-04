@@ -13,16 +13,15 @@
     "dev:client": "npm run dev --workspace=client",
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
-    "db:generate": "npm run db:generate --workspace=server",
+    "db:generate": "npx prisma generate --schema=./server/prisma/schema.prisma",
     "db:push": "npm run db:push --workspace=server",
     "db:migrate": "npm run db:migrate --workspace=server",
     "db:seed": "npm run db:seed --workspace=server",
-    "build": "npm run db:generate --workspace=server && npm run build --workspace=client",
-    "vercel-build": "npm run db:generate --workspace=server && npm run build --workspace=client"
+    "build": "npx prisma generate --schema=./server/prisma/schema.prisma && npm run build --workspace=client",
+    "vercel-build": "npx prisma generate --schema=./server/prisma/schema.prisma && npm run build --workspace=client"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
-    "argon2": "^0.45.1",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

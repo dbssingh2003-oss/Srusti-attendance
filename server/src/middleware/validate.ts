@@ -16,10 +16,22 @@ export function validate(schema: {
         req.body = schema.body.parse(req.body);
       }
       if (schema.query) {
-        req.query = schema.query.parse(req.query) as Record<string, string>;
+        const parsedQuery = schema.query.parse(req.query);
+        Object.defineProperty(req, 'query', {
+          value: parsedQuery,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       if (schema.params) {
-        req.params = schema.params.parse(req.params) as Record<string, string>;
+        const parsedParams = schema.params.parse(req.params);
+        Object.defineProperty(req, 'params', {
+          value: parsedParams,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       next();
     } catch (error: any) {

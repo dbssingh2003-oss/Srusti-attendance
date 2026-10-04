@@ -11,5 +11,7 @@ export const prisma =
     log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Cache in all environments — critical for serverless (Vercel) to prevent
+// exhausting the DB connection pool on every cold invocation.
+globalForPrisma.prisma = prisma;
 
