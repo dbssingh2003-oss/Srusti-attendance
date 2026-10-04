@@ -26,3 +26,5 @@ coverage/
 
 # Prisma
 prisma/*.db
+
+package-lock.json

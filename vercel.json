@@ -1,10 +1,11 @@
 {
   "version": 2,
+  "installCommand": "npm install --prefer-offline || npm install",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "client/dist",
   "functions": {
     "api/index.ts": {
-      "includeFiles": "{prisma/**,server/dist/**}"
+      "includeFiles": "server/**"
     }
   },
   "rewrites": [
