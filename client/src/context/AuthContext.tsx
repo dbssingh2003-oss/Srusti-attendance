@@ -53,15 +53,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     refreshMe();
+
+    const handleLogout = () => {
+      setUser(null);
+      setToken(null);
+      disconnectSocket();
+    };
+    window.addEventListener('srusti_logout', handleLogout);
+    return () => window.removeEventListener('srusti_logout', handleLogout);
   }, []);
 
   const login = async (email: string, password: string): Promise<User> => {
-    const res = await apiRequest<{ accessToken: string; user: User }>('/auth/login', {
+    const res = await apiRequest<{ accessToken: string; refreshToken?: string; user: User }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
 
     localStorage.setItem('srusti_token', res.accessToken);
+    if (res.refreshToken) {
+      localStorage.setItem('srusti_refresh', res.refreshToken);
+    }
     localStorage.setItem('srusti_user', JSON.stringify(res.user));
     setToken(res.accessToken);
     setUser(res.user);
@@ -75,20 +86,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: 'STUDENT' | 'TEACHER' | 'ADMIN';
     rollNo?: string;
   }): Promise<User> => {
-    const res = await apiRequest<{ accessToken: string; user: User }>('/auth/register', {
+    const res = await apiRequest<{ accessToken: string; refreshToken?: string; user: User }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
 
     localStorage.setItem('srusti_token', res.accessToken);
+    if (res.refreshToken) {
+      localStorage.setItem('srusti_refresh', res.refreshToken);
+    }
     localStorage.setItem('srusti_user', JSON.stringify(res.user));
     setToken(res.accessToken);
     setUser(res.user);
     return res.user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiRequest('/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors during logout
+    }
     localStorage.removeItem('srusti_token');
+    localStorage.removeItem('srusti_refresh');
     localStorage.removeItem('srusti_user');
     setToken(null);
     setUser(null);

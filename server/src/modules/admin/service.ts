@@ -8,8 +8,9 @@ import { Role, Prisma } from '@prisma/client';
 // =========== USERS ===========
 
 export async function listUsers(filters: { page?: number; limit?: number; search?: string; role?: Role }) {
-  const page = filters.page ?? 1;
-  const limit = filters.limit ?? 200;
+  const page = Math.max(1, filters.page ?? 1);
+  const rawLimit = filters.limit ?? 200;
+  const limit = Math.min(Math.max(1, rawLimit), 500);
   const skip = (page - 1) * limit;
 
   const where: Prisma.UserWhereInput = {};
@@ -40,7 +41,12 @@ export async function listUsers(filters: { page?: number; limit?: number; search
             id: true,
             code: true,
             name: true,
-            _count: { select: { enrollments: true, sessions: true } },
+            _count: {
+              select: {
+                enrollments: true,
+                sessions: { where: { status: 'FINALIZED' } },
+              },
+            },
           },
           orderBy: { code: 'asc' },
         },
@@ -51,13 +57,20 @@ export async function listUsers(filters: { page?: number; limit?: number; search
                 id: true,
                 code: true,
                 name: true,
-                _count: { select: { sessions: true } },
+                _count: {
+                  select: {
+                    sessions: { where: { status: 'FINALIZED' } },
+                  },
+                },
               },
             },
           },
           orderBy: { subject: { code: 'asc' } },
         },
         attendance: {
+          where: {
+            session: { status: 'FINALIZED' },
+          },
           select: {
             id: true,
             status: true,
@@ -81,7 +94,10 @@ export async function listUsers(filters: { page?: number; limit?: number; search
 
   const users = rawUsers.map((u) => {
     if (u.role === 'STUDENT') {
-      const presentCount = u.attendance.filter(
+      const finalizedAttendance = u.attendance.filter(
+        (a) => a.session?.status === 'FINALIZED'
+      );
+      const presentCount = finalizedAttendance.filter(
         (a) => a.status === 'PRESENT' || a.status === 'LATE'
       ).length;
 
@@ -90,8 +106,10 @@ export async function listUsers(filters: { page?: number; limit?: number; search
         0
       );
 
-      const attendancePercentage = totalEnrolledSessions > 0
-        ? Math.round((presentCount / totalEnrolledSessions) * 100)
+      const totalFinalizedSessions = Math.max(totalEnrolledSessions, finalizedAttendance.length);
+
+      const attendancePercentage = totalFinalizedSessions > 0
+        ? Math.round((presentCount / totalFinalizedSessions) * 100)
         : 100;
 
       return {
@@ -105,7 +123,7 @@ export async function listUsers(filters: { page?: number; limit?: number; search
         enrollments: u.enrollments,
         attendanceStats: {
           totalAttended: presentCount,
-          totalSessions: totalEnrolledSessions,
+          totalSessions: totalFinalizedSessions,
           percentage: attendancePercentage,
         },
       };
@@ -169,8 +187,7 @@ export async function createUser(input: {
       select: { id: true, email: true, name: true, role: true, rollNo: true, isActive: true },
     });
 
-    // Log the generated password for dev (in production, send email)
-    logger.info({ userId: user.id, password }, 'User created with password');
+    logger.info({ userId: user.id }, 'User created successfully with default password');
 
     return { ...user, generatedPassword: password };
   } catch (error) {

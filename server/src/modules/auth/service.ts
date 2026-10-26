@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../config/env';
 import { RegisterInput } from './schema';
 import { Role } from '@prisma/client';
+import nodemailer from 'nodemailer';
 
 const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -185,13 +186,17 @@ export async function register(input: RegisterInput, meta: LoginMeta) {
     }
   }
 
+  if (input.role && (input.role as string) !== 'STUDENT') {
+    throw new AppError('FORBIDDEN', 403, 'Self-registration is only allowed for students. Contact an administrator for teacher or admin access.');
+  }
+
   const passwordHash = await hashPassword(input.password);
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
       name: input.name,
-      role: input.role as Role,
-      rollNo: input.role === 'STUDENT' && input.rollNo ? input.rollNo.toUpperCase() : null,
+      role: 'STUDENT',
+      rollNo: input.rollNo ? input.rollNo.toUpperCase() : null,
       passwordHash,
       mustChangePassword: false,
     },
@@ -232,8 +237,49 @@ export async function forgotPassword(email: string) {
     },
   });
 
-  logger.info({ userId: user.id, token: rawToken }, 'Password reset token generated');
+  logger.info({ userId: user.id }, 'Password reset token generated');
   await auditLog(user.id, 'PASSWORD_RESET_REQUESTED', 'User', user.id);
+
+  if (env.SMTP_HOST && env.SMTP_USER) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT,
+        secure: env.SMTP_PORT === 465,
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS,
+        },
+      });
+
+      const resetUrl = `${env.CLIENT_ORIGIN}/reset-password?token=${rawToken}`;
+      await transporter.sendMail({
+        from: env.MAIL_FROM,
+        to: user.email,
+        subject: 'Password Reset Request - Srusti Attendance Portal',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #4f46e5;">Password Reset Request</h2>
+            <p>Hello ${user.name},</p>
+            <p>We received a request to reset your password for the Srusti Attendance Portal. Click the button below to set a new password. This link is valid for 1 hour.</p>
+            <div style="margin: 24px 0;">
+              <a href="${resetUrl}" 
+                 style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                Reset Password
+              </a>
+            </div>
+            <p style="color: #64748b; font-size: 0.875rem;">If you did not request this, please ignore this email or contact your administrator.</p>
+          </div>
+        `,
+        text: `Hello ${user.name},\n\nPlease reset your password using the following link (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, please ignore this email.`,
+      });
+      logger.info({ userId: user.id }, 'Password reset email sent successfully');
+    } catch (mailErr) {
+      logger.warn({ mailErr, userId: user.id }, 'Failed to send password reset email via SMTP');
+    }
+  } else {
+    logger.info({ userId: user.id }, 'SMTP not configured; skipping email dispatch');
+  }
 
   return rawToken;
 }

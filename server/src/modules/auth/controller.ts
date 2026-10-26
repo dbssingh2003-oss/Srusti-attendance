@@ -40,7 +40,7 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 
 export async function refreshToken(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
+    const token = req.cookies?.[COOKIE_NAME] || req.body?.refreshToken;
     if (!token) {
       res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'No refresh token' } });
       return;
@@ -50,7 +50,7 @@ export async function refreshToken(req: Request, res: Response, next: NextFuncti
     const result = await authService.refresh(token, meta);
 
     res.cookie(COOKIE_NAME, result.refreshToken, cookieOptions);
-    res.json({ accessToken: result.accessToken });
+    res.json({ accessToken: result.accessToken, refreshToken: result.refreshToken });
   } catch (error) {
     next(error);
   }
@@ -58,8 +58,10 @@ export async function refreshToken(req: Request, res: Response, next: NextFuncti
 
 export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
-    await authService.logout(token);
+    const token = req.cookies?.[COOKIE_NAME] || req.body?.refreshToken;
+    if (token) {
+      await authService.logout(token);
+    }
 
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: 0 });
     res.status(204).send();

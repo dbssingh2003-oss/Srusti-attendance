@@ -71,14 +71,14 @@ export async function reconcile() {
       }
     }
 
+    const stats = { opened: toOpen.length, closed: toClose.length, finalized: toFinalize.length };
     if (toOpen.length || toClose.length || toFinalize.length) {
-      logger.info(
-        { opened: toOpen.length, closed: toClose.length, finalized: toFinalize.length },
-        'Reconciler run complete'
-      );
+      logger.info(stats, 'Reconciler run complete');
     }
+    return stats;
   } catch (err) {
     logger.error({ err }, 'Reconciler failed');
+    throw err;
   }
 }
 

@@ -10,11 +10,7 @@ import {
   Layers
 } from 'lucide-react';
 
-interface NavbarProps {
-  onSwitchUser?: (email: string) => void;
-}
-
-export const Navbar: React.FC<NavbarProps> = ({ onSwitchUser }) => {
+export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
 
   const getRoleBadge = (role?: string) => {
@@ -106,38 +102,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onSwitchUser }) => {
 
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              {/* Quick Switcher dropdown pills */}
-              {onSwitchUser && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginRight: '2px' }}>
-                    Quick Login:
-                  </span>
-                  <button 
-                    onClick={() => onSwitchUser('admin@college.edu')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                    title="Switch to Admin"
-                  >
-                    Admin
-                  </button>
-                  <button 
-                    onClick={() => onSwitchUser('rajesh.kumar@college.edu')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                    title="Switch to Teacher"
-                  >
-                    Teacher
-                  </button>
-                  <button 
-                    onClick={() => onSwitchUser('21cs001@college.edu')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                    title="Switch to Student"
-                  >
-                    Student
-                  </button>
-                </div>
-              )}
 
               {/* User Pill */}
               <div style={{

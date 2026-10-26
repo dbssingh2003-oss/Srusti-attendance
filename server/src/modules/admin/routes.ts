@@ -10,9 +10,30 @@ import {
   idParamSchema,
 } from './schema';
 
+import { env } from '../../config/env';
+
 const router = Router();
 
-// All admin routes require ADMIN role
+// Reconcile endpoint: accessible via Vercel CRON_SECRET or Admin auth
+const allowAdminOrCron = (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  const cronSecretHeader = req.headers['x-cron-secret'];
+  const cronSecret = process.env.CRON_SECRET || env.CRON_SECRET;
+
+  if (cronSecret && (authHeader === `Bearer ${cronSecret}` || cronSecretHeader === cronSecret)) {
+    return next();
+  }
+
+  authenticate(req, res, (err: any) => {
+    if (err) return next(err);
+    requireRole('ADMIN')(req, res, next);
+  });
+};
+
+router.get('/reconcile', allowAdminOrCron, controller.triggerReconcile);
+router.post('/reconcile', allowAdminOrCron, controller.triggerReconcile);
+
+// All other admin routes require ADMIN role
 router.use(authenticate, requireRole('ADMIN'));
 
 // Users

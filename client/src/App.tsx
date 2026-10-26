@@ -7,7 +7,7 @@ import { TeacherDashboard } from './components/TeacherDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 
 const MainApp: React.FC = () => {
-  const { user, loading, login } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -34,17 +34,9 @@ const MainApp: React.FC = () => {
     return <LoginView />;
   }
 
-  const handleQuickSwitch = async (email: string) => {
-    try {
-      await login(email, 'Password123');
-    } catch (err: any) {
-      alert('Quick switch failed: ' + err.message);
-    }
-  };
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar onSwitchUser={handleQuickSwitch} />
+      <Navbar />
       <main style={{ flex: 1 }}>
         {user.role === 'STUDENT' && <StudentDashboard />}
         {user.role === 'TEACHER' && <TeacherDashboard />}

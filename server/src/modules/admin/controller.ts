@@ -100,3 +100,11 @@ export async function getAuditLogs(req: Request, res: Response, next: NextFuncti
     res.json(result);
   } catch (error) { next(error); }
 }
+
+export async function triggerReconcile(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const { reconcile } = await import('../../jobs/reconcile');
+    const result = await reconcile();
+    res.json({ success: true, timestamp: new Date().toISOString(), result });
+  } catch (error) { next(error); }
+}

@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import { AppError } from '../../lib/errors';
 import { formatDate, formatTime } from '../../lib/time';
 import { stringify } from 'csv-stringify/sync';
+import ExcelJS from 'exceljs';
 
 interface ReportFilters {
   subjectId: string;
@@ -127,4 +128,109 @@ export function exportCsv(data: Awaited<ReturnType<typeof getDailyReport>>): str
       { key: 'markedAt', header: 'Marked At' },
     ],
   });
+}
+
+/**
+ * Export daily report as Excel workbook.
+ */
+export async function exportDailyExcel(data: Awaited<ReturnType<typeof getDailyReport>>): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Srusti Attendance Portal';
+  workbook.created = new Date();
+
+  const worksheet = workbook.addWorksheet(`Daily - ${data.subject.code}`);
+
+  worksheet.columns = [
+    { header: 'Roll No', key: 'rollNo', width: 16 },
+    { header: 'Name', key: 'name', width: 28 },
+    { header: 'Date', key: 'date', width: 14 },
+    { header: 'Session Time', key: 'sessionTime', width: 24 },
+    { header: 'Status', key: 'status', width: 14 },
+    { header: 'Marked At', key: 'markedAt', width: 16 },
+  ];
+
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4F46E5' },
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.height = 24;
+
+  data.rows.forEach((r) => {
+    const row = worksheet.addRow(r);
+    row.height = 20;
+    const statusCell = row.getCell('status');
+    if (r.status === 'PRESENT') {
+      statusCell.font = { color: { argb: 'FF16A34A' }, bold: true };
+    } else if (r.status === 'ABSENT') {
+      statusCell.font = { color: { argb: 'FFDC2626' }, bold: true };
+    } else if (r.status === 'LATE') {
+      statusCell.font = { color: { argb: 'FFD97706' }, bold: true };
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+/**
+ * Export summary report as CSV.
+ */
+export function exportSummaryCsv(data: Awaited<ReturnType<typeof getSummaryReport>>): string {
+  return stringify(data.students, {
+    header: true,
+    columns: [
+      { key: 'rollNo', header: 'Roll No' },
+      { key: 'name', header: 'Student Name' },
+      { key: 'present', header: 'Attended' },
+      { key: 'total', header: 'Total Sessions' },
+      { key: 'pct', header: 'Percentage (%)' },
+    ],
+  });
+}
+
+/**
+ * Export summary report as Excel workbook.
+ */
+export async function exportSummaryExcel(data: Awaited<ReturnType<typeof getSummaryReport>>): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Srusti Attendance Portal';
+  workbook.created = new Date();
+
+  const worksheet = workbook.addWorksheet(`Summary - ${data.subject.code}`);
+
+  worksheet.columns = [
+    { header: 'Roll No', key: 'rollNo', width: 16 },
+    { header: 'Student Name', key: 'name', width: 28 },
+    { header: 'Attended', key: 'present', width: 14 },
+    { header: 'Total Sessions', key: 'total', width: 16 },
+    { header: 'Percentage (%)', key: 'pct', width: 16 },
+  ];
+
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4F46E5' },
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+  headerRow.height = 24;
+
+  data.students.forEach((s) => {
+    const row = worksheet.addRow(s);
+    row.height = 20;
+    const pctCell = row.getCell('pct');
+    if (s.pct < 75) {
+      pctCell.font = { color: { argb: 'FFDC2626' }, bold: true };
+    } else {
+      pctCell.font = { color: { argb: 'FF16A34A' }, bold: true };
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }

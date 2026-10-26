@@ -14,13 +14,15 @@ const envSchema = z.object({
   APP_TIMEZONE: z.string().default('Asia/Kolkata'),
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
 
-  DATABASE_URL: z.string().default('postgresql://neondb_owner:npg_MEAl3OgnFm1R@ep-raspy-shape-b3a0rsqn-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'),
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
-  JWT_ACCESS_SECRET: z.string().min(16).default('srusti-attendance-production-jwt-access-secret-32chars'),
+  JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET must be at least 16 characters'),
   JWT_ACCESS_TTL: z.string().default('15m'),
   REFRESH_TTL_DAYS: z.coerce.number().default(7),
   COOKIE_DOMAIN: z.string().default(''),
+
+  CRON_SECRET: z.string().optional(),
 
   ATTENDANCE_THRESHOLD: z.coerce.number().min(0).max(100).default(50),
   DEFAULT_WINDOW_MINUTES: z.coerce.number().default(10),
@@ -38,7 +40,12 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.warn('⚠️ Environment variables warning (using safe fallbacks):', parsed.error.flatten().fieldErrors);
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      `CRITICAL: Invalid environment configuration:\n${JSON.stringify(parsed.error.flatten().fieldErrors, null, 2)}`
+    );
+  }
+  console.warn('⚠️ Environment variables warning (using safe development fallbacks):', parsed.error.flatten().fieldErrors);
 }
 
 export const env: Env = parsed.success
@@ -48,12 +55,13 @@ export const env: Env = parsed.success
       PORT: Number(process.env.PORT) || 4000,
       APP_TIMEZONE: process.env.APP_TIMEZONE || 'Asia/Kolkata',
       CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || '*',
-      DATABASE_URL: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_MEAl3OgnFm1R@ep-raspy-shape-b3a0rsqn-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
+      DATABASE_URL: process.env.DATABASE_URL || '',
       REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379',
-      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'srusti-attendance-production-jwt-access-secret-32chars',
+      JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || 'dev-local-jwt-fallback-secret-minimum-32chars!',
       JWT_ACCESS_TTL: process.env.JWT_ACCESS_TTL || '15m',
       REFRESH_TTL_DAYS: Number(process.env.REFRESH_TTL_DAYS) || 7,
       COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || '',
+      CRON_SECRET: process.env.CRON_SECRET,
       ATTENDANCE_THRESHOLD: Number(process.env.ATTENDANCE_THRESHOLD) || 50,
       DEFAULT_WINDOW_MINUTES: Number(process.env.DEFAULT_WINDOW_MINUTES) || 10,
       MAX_EXTEND_MINUTES: Number(process.env.MAX_EXTEND_MINUTES) || 10,

@@ -51,8 +51,9 @@ This project is fully configured for seamless one-click deployment on **Vercel**
 
    | Variable Name | Value | Description |
    |---|---|---|
-   | `DATABASE_URL` | `postgresql://neondb_owner:npg_MEAl3OgnFm1R@ep-raspy-shape-b3a0rsqn-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require` | Your Neon PostgreSQL connection string |
-   | `JWT_ACCESS_SECRET` | `srusti-attendance-production-jwt-access-secret-32chars` | Strong secret for signing JWT tokens |
+   | `DATABASE_URL` | `postgresql://<user>:<password>@ep-raspy-shape-b3a0rsqn-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require` | Your Neon PostgreSQL connection string |
+   | `JWT_ACCESS_SECRET` | `<your-strong-jwt-secret-min-32-chars>` | Strong secret for signing JWT tokens |
+   | `CRON_SECRET` | `<optional-random-cron-secret-token>` | Secret key for securing Vercel Cron Sweeper |
    | `NODE_ENV` | `production` | Production mode |
    | `APP_TIMEZONE` | `Asia/Kolkata` | Application timezone |
    | `CLIENT_ORIGIN` | `https://your-project-name.vercel.app` | Your Vercel domain (optional, CORS allows all `.vercel.app` by default) |

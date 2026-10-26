@@ -7,6 +7,12 @@
       "includeFiles": "api/server.cjs"
     }
   },
+  "crons": [
+    {
+      "path": "/api/v1/admin/reconcile",
+      "schedule": "* * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
